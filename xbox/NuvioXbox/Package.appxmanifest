@@ -4,11 +4,11 @@
          xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
          IgnorableNamespaces="uap mp">
   <Identity Name="Ravi8644.NuvioXbox" Publisher="CN=NuvioXboxDev" Version="1.0.0.0" ProcessorArchitecture="x64" />
+  <mp:PhoneIdentity PhoneProductId="4d421756-66a6-4d3c-9abd-8276168860ae" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>Nuvio para Xbox</DisplayName>
     <PublisherDisplayName>Nuvio Port Community</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
-    <mp:PhoneIdentity PhoneProductId="4d421756-66a6-4d3c-9abd-8276168860ae" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.19041.0" />
