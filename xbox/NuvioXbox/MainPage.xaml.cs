@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Windows.Data.Json;
 using Windows.Media.Core;
@@ -17,6 +19,8 @@ namespace NuvioXbox
         private readonly ObservableCollection<AddonEntry> _addons = new ObservableCollection<AddonEntry>();
         private readonly ObservableCollection<CatalogEntry> _catalog = new ObservableCollection<CatalogEntry>();
         private readonly ObservableCollection<StreamEntry> _streams = new ObservableCollection<StreamEntry>();
+        private readonly List<SubtitleCue> _subtitleCues = new List<SubtitleCue>();
+        private readonly DispatcherTimer _subtitleTimer = new DispatcherTimer();
         private string _currentType = "movie";
         private CatalogEntry _selected;
 
@@ -26,6 +30,8 @@ namespace NuvioXbox
             AddonList.ItemsSource = _addons;
             CatalogList.ItemsSource = _catalog;
             StreamList.ItemsSource = _streams;
+            _subtitleTimer.Interval = TimeSpan.FromMilliseconds(250);
+            _subtitleTimer.Tick += SubtitleTimer_Tick;
             Loaded += MainPage_Loaded;
         }
 
@@ -233,7 +239,7 @@ namespace NuvioXbox
                 : _streams.Count + " streams retornados. Selecione um stream direto HTTP/HTTPS para reproduzir.";
         }
 
-        private void Stream_ItemClick(object sender, ItemClickEventArgs e)
+        private async void Stream_ItemClick(object sender, ItemClickEventArgs e)
         {
             var selected = e.ClickedItem as StreamEntry;
             if (selected == null) return;
@@ -244,13 +250,158 @@ namespace NuvioXbox
             }
             try
             {
+                _subtitleTimer.Stop();
+                _subtitleCues.Clear();
+                SubtitleOverlay.Text = "";
+                SubtitlePanel.Visibility = Visibility.Collapsed;
                 Player.Source = MediaSource.CreateFromUri(new Uri(selected.Url));
                 StatusText.Text = "Reproduzindo: " + selected.Name;
+                await LoadBrazilianPortugueseSubtitleAsync();
             }
             catch (Exception ex)
             {
                 StatusText.Text = "Não foi possível iniciar a reprodução: " + ex.Message;
             }
+        }
+
+        private async Task LoadBrazilianPortugueseSubtitleAsync()
+        {
+            string bestUrl = null;
+            string bestLanguage = "";
+            var isExactBrazilian = false;
+            if (_selected == null) return;
+
+            foreach (var addon in _addons)
+            {
+                try
+                {
+                    var endpoint = BuildEndpoint(addon.ManifestUrl, "subtitles/" + Uri.EscapeDataString(_selected.Type) + "/" + Uri.EscapeDataString(_selected.Id) + ".json");
+                    var response = JsonObject.Parse(await Client.GetStringAsync(endpoint));
+                    var subtitles = response.GetNamedArray("subtitles", new JsonArray());
+                    foreach (var value in subtitles)
+                    {
+                        if (value.ValueType != JsonValueType.Object) continue;
+                        var item = value.GetObject();
+                        var language = ReadString(item, "lang", "");
+                        var url = ReadString(item, "url", "");
+                        if (string.IsNullOrWhiteSpace(url) || !IsPortugueseSubtitle(language)) continue;
+                        if (!Uri.TryCreate(url, UriKind.Absolute, out var subtitleUri))
+                            subtitleUri = new Uri(new Uri(addon.ManifestUrl), url);
+                        if (subtitleUri.Scheme != "http" && subtitleUri.Scheme != "https") continue;
+                        var exact = IsBrazilianPortuguese(language);
+                        if (bestUrl == null || (exact && !isExactBrazilian))
+                        {
+                            bestUrl = subtitleUri.ToString();
+                            bestLanguage = language;
+                            isExactBrazilian = exact;
+                        }
+                        if (exact) break;
+                    }
+                    if (isExactBrazilian) break;
+                }
+                catch
+                {
+                    // Subtitle providers may require extra metadata and can be unavailable for a title.
+                }
+            }
+
+            if (bestUrl == null)
+            {
+                StatusText.Text = "Reproduzindo. Nenhum add-on retornou legenda em português para este título.";
+                return;
+            }
+            try
+            {
+                var subtitleText = await Client.GetStringAsync(new Uri(bestUrl));
+                _subtitleCues.Clear();
+                _subtitleCues.AddRange(ParseSubtitleCues(subtitleText));
+                if (_subtitleCues.Count == 0)
+                {
+                    StatusText.Text = "A legenda foi encontrada, mas o formato não pôde ser interpretado nesta versão.";
+                    return;
+                }
+                SubtitlePanel.Visibility = Visibility.Visible;
+                _subtitleTimer.Start();
+                StatusText.Text = "Reproduzindo com legenda " + bestLanguage + " (seleção automática pt-BR).";
+            }
+            catch (Exception ex)
+            {
+                StatusText.Text = "Não foi possível carregar a legenda: " + ex.Message;
+            }
+        }
+
+        private void SubtitleTimer_Tick(object sender, object e)
+        {
+            try
+            {
+                if (Player.MediaPlayer == null) return;
+                var position = Player.MediaPlayer.PlaybackSession.Position;
+                var cue = _subtitleCues.FirstOrDefault(c => position >= c.Start && position < c.End);
+                SubtitleOverlay.Text = cue == null ? "" : cue.Text;
+                SubtitlePanel.Visibility = cue == null ? Visibility.Collapsed : Visibility.Visible;
+            }
+            catch
+            {
+                SubtitlePanel.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private static bool IsBrazilianPortuguese(string language)
+        {
+            var value = (language ?? "").Trim().ToLowerInvariant();
+            return value.Contains("pt-br") || value.Contains("pt_br") || value == "pob" || value.Contains("brazil") || value.Contains("brasil");
+        }
+
+        private static bool IsPortugueseSubtitle(string language)
+        {
+            var value = (language ?? "").Trim().ToLowerInvariant();
+            return IsBrazilianPortuguese(value) || value == "pt" || value == "por" || value == "portuguese" || value == "português";
+        }
+
+        private static List<SubtitleCue> ParseSubtitleCues(string input)
+        {
+            var result = new List<SubtitleCue>();
+            var normalized = (input ?? "").Replace("\r", "");
+            var blocks = Regex.Split(normalized, "\n\s*\n");
+            var timingPattern = new Regex("(?<start>(?:\\d{1,2}:)?\\d{2}:\\d{2}[,.]\\d{1,3})\\s*-->\\s*(?<end>(?:\\d{1,2}:)?\\d{2}:\\d{2}[,.]\\d{1,3})");
+            foreach (var block in blocks)
+            {
+                var lines = block.Split('\n');
+                var timingLine = Array.FindIndex(lines, line => timingPattern.IsMatch(line));
+                if (timingLine < 0) continue;
+                var match = timingPattern.Match(lines[timingLine]);
+                TimeSpan start;
+                TimeSpan end;
+                if (!TryParseSubtitleTimestamp(match.Groups["start"].Value, out start) || !TryParseSubtitleTimestamp(match.Groups["end"].Value, out end)) continue;
+                var text = string.Join("\n", lines.Skip(timingLine + 1)).Trim();
+                text = Regex.Replace(text, "<[^>]+>", "");
+                text = System.Net.WebUtility.HtmlDecode(text);
+                if (!string.IsNullOrWhiteSpace(text) && end > start)
+                    result.Add(new SubtitleCue { Start = start, End = end, Text = text });
+            }
+            return result;
+        }
+
+        private static bool TryParseSubtitleTimestamp(string value, out TimeSpan timestamp)
+        {
+            timestamp = TimeSpan.Zero;
+            var parts = value.Replace(',', '.').Split(':');
+            if (parts.Length < 2 || parts.Length > 3) return false;
+            var secondParts = parts[parts.Length - 1].Split('.');
+            int hours = 0;
+            int minutes;
+            int seconds;
+            int milliseconds = 0;
+            if (!int.TryParse(parts.Length == 3 ? parts[0] : "0", out hours)) return false;
+            if (!int.TryParse(parts.Length == 3 ? parts[1] : parts[0], out minutes)) return false;
+            if (!int.TryParse(secondParts[0], out seconds)) return false;
+            if (secondParts.Length > 1)
+            {
+                var fraction = (secondParts[1] + "000").Substring(0, 3);
+                if (!int.TryParse(fraction, out milliseconds)) return false;
+            }
+            timestamp = new TimeSpan(hours, minutes, seconds).Add(TimeSpan.FromMilliseconds(milliseconds));
+            return true;
         }
 
         private static Uri BuildEndpoint(string manifestUrl, string relativePath)
@@ -294,5 +445,12 @@ namespace NuvioXbox
         public string Url { get; set; }
         public string Detail { get; set; }
         public bool IsDirect { get; set; }
+    }
+
+    public sealed class SubtitleCue
+    {
+        public TimeSpan Start { get; set; }
+        public TimeSpan End { get; set; }
+        public string Text { get; set; }
     }
 }

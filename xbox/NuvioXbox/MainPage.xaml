@@ -105,7 +105,12 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
-                    <MediaPlayerElement x:Name="Player" Grid.Column="2" AreTransportControlsEnabled="True" AutoPlay="True" MinHeight="260" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                    <Grid Grid.Column="2">
+                        <MediaPlayerElement x:Name="Player" AreTransportControlsEnabled="True" AutoPlay="True" MinHeight="260" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                        <Border x:Name="SubtitlePanel" VerticalAlignment="Bottom" HorizontalAlignment="Stretch" Background="#CC000000" Padding="12" Margin="20,8,20,56" Visibility="Collapsed" IsHitTestVisible="False">
+                            <TextBlock x:Name="SubtitleOverlay" Text="" FontSize="25" Foreground="White" TextAlignment="Center" TextWrapping="Wrap" MaxHeight="120" />
+                        </Border>
+                    </Grid>
                 </Grid>
             </Grid>
         </Grid>
