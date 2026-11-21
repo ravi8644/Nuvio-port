@@ -37,3 +37,8 @@ iosApp/Configuration/DeviceSigning.local.json
 
 # Local MPVKit iOS build environment (sparse APFS image, see MPVKit docs)
 .mpvkit-build.sparseimage
+
+# Xbox UWP packages and local signing material
+/xbox/NuvioXbox/artifacts/
+*.pfx
+*.cer

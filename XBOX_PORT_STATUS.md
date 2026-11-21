@@ -1,29 +1,26 @@
 # Nuvio Xbox Port — status técnico
 
-## Situação atual
+## Estado atual
 
-Este repositório recebeu a base NuvioMobile 1.0.0 fornecida para o port. A base original é um projeto Kotlin Multiplatform com implementações Android e iOS e componentes desktop. O APK recebido é Android ARM64 e não pode ser executado dentro de um pacote APPX.
+O repositório contém agora um cliente UWP separado em `xbox/NuvioXbox`, orientado a x64 para o Xbox Dev Mode. Ele não usa o APK Android como binário interno. A base NuvioMobile original segue disponível no repositório para consulta e portabilidade futura.
 
-O Xbox Dev Mode exige um aplicativo Windows/UWP compatível com a arquitetura do console. Um pacote APPX/MSIX é apenas o contêiner; ele não converte código Android, DEX ou bibliotecas `.so` Android em binários Windows.
+O cliente experimental tem interface de TV em pt-BR, navegação por controle, cadastro/persistência de URLs de manifests Stremio, consulta básica a catálogos e streams, e reprodução de URLs diretas HTTP/HTTPS pelo `MediaPlayer` do Windows. Foi criado um workflow Windows para compilar e assinar um APPX de desenvolvimento.
 
-## O que ainda precisa ser implementado
+## O que ainda não é paridade com NuvioMobile
 
-1. Criar um alvo Windows/Xbox real, com manifesto `Package.appxmanifest` e entrada de aplicação compatível com Xbox.
-2. Portar a interface e o ciclo de vida para APIs Windows/UWP ou Xbox GDK.
-3. Substituir as bibliotecas nativas Android do player (`libmpv`, `libffmpegJNI`, `libnuvio_engine` e dependências) por builds Windows compatíveis com a arquitetura escolhida.
-4. Adaptar entrada de controle, navegação por gamepad, armazenamento, rede, downloads e reprodução.
-5. Manter e testar a tradução `pt-rBR`.
-6. Selecionar explicitamente os repositórios de plugins/add-ons autorizados. O aplicativo deve armazenar URLs de manifests/repositórios; não é correto embutir automaticamente conteúdo comunitário não selecionado.
-7. Compilar no Windows com Windows SDK/Visual Studio, gerar o pacote para a arquitetura Xbox, assinar com certificado de desenvolvimento e testar no Xbox Device Portal.
+A arquitetura compartilhada do Nuvio tem muitas interfaces de plataforma, e o repositório não declara um alvo JVM desktop compilável. O motor Android `libmpv`/Media3, os plugins WASM/QuickJS e as integrações nativas não rodam automaticamente no UWP. O cliente inicial não implementa logins/sincronização Nuvio, motores dos plugins Nuvio, streams P2P/torrent, reprodução por mpv, DRM, headers de autenticação arbitrários nem legendas externas. A UI está em português do Brasil, mas seleção automática de faixas de legenda/áudio e legendas externas ainda não foram portadas.
 
-## Critério de entrega
+O app não instala automaticamente todos os repositórios do site comunitário: ele aceita manifests Stremio informados pelo usuário e abre o diretório para consulta. Repositórios WASM de plugins Nuvio não são equivalentes a manifests Stremio e ainda não são compatíveis com este cliente.
 
-Um APPX só deve ser publicado como artefato quando o binário interno for Windows/Xbox, o manifesto declarar a arquitetura correta, a assinatura for verificável e o pacote tiver sido instalado e iniciado em um ambiente Xbox Dev Mode. Um APK renomeado, um APPX vazio ou um shell sem o player não atende ao objetivo.
+## Geração e validação do APPX
+
+O workflow `.github/workflows/xbox-appx.yml` compila para x64 em um runner Windows, gera um certificado de desenvolvimento temporário, assina o APPX e publica o pacote e o certificado `.cer` como artefato da execução. O `.cer` corresponde somente àquela compilação. O pacote ainda precisa ser testado no Xbox Series em Dev Mode; sucesso de build sozinho não comprova instalação, compatibilidade de codecs, add-ons ou legendas.
 
 ## Referências
 
 - [Xbox Media App Development Options](https://learn.microsoft.com/en-us/windows/uwp/apps-for-xbox/development-options)
-- [Packaging UWP apps](https://learn.microsoft.com/en-us/windows/msix/package/packaging-uwp-apps)
+- [Getting started with UWP app development on Xbox](https://learn.microsoft.com/en-us/windows/uwp/xbox-apps/getting-started)
 - [App package architectures](https://learn.microsoft.com/en-us/windows/msix/package/device-architecture)
+- [Packaging UWP apps](https://learn.microsoft.com/en-us/windows/msix/package/packaging-uwp-apps)
 - [Device Portal for Xbox](https://learn.microsoft.com/en-us/windows/uwp/xbox-apps/device-portal-xbox)
 - [Nuvio Plugin — How to Install & Use](https://nuvioplugin.com/how-to-use.html)

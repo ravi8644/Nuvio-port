@@ -1,0 +1,13 @@
+<Application
+    x:Class="NuvioXbox.App"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    RequestedTheme="Dark">
+    <Application.Resources>
+        <ResourceDictionary>
+            <SolidColorBrush x:Key="PageBackgroundBrush" Color="#0B1020" />
+            <SolidColorBrush x:Key="CardBackgroundBrush" Color="#151D33" />
+            <SolidColorBrush x:Key="AccentBrush" Color="#70E1C1" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

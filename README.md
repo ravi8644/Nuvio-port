@@ -53,3 +53,7 @@ The shared app is built with Kotlin Multiplatform and Compose Multiplatform.
 ## License
 
 [GNU General Public License v3.0](./LICENSE)
+
+## Xbox Dev Mode (experimental)
+
+The Android APK cannot be converted directly to APPX. An experimental x64 UWP client, its scope, and current limitations are documented in [`xbox/README.md`](xbox/README.md). Run the **Build Nuvio Xbox APPX** GitHub Actions workflow on branch `port/xbox-devmode` to build a signed development package; the APPX and its temporary development certificate are published as workflow artifacts.
