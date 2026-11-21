@@ -362,7 +362,7 @@ namespace NuvioXbox
         {
             var result = new List<SubtitleCue>();
             var normalized = (input ?? "").Replace("\r", "");
-            var blocks = Regex.Split(normalized, "\n\s*\n");
+            var blocks = Regex.Split(normalized, @"\n\s*\n");
             var timingPattern = new Regex("(?<start>(?:\\d{1,2}:)?\\d{2}:\\d{2}[,.]\\d{1,3})\\s*-->\\s*(?<end>(?:\\d{1,2}:)?\\d{2}:\\d{2}[,.]\\d{1,3})");
             foreach (var block in blocks)
             {
